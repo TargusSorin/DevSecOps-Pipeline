@@ -35,8 +35,14 @@ jobs:
 
       - name: Publish test results
         if: always()
-        uses: dorny/test-reporter@v1
+        uses: actions/upload-artifact@v4
         with:
-          name: JUnit Test Results
-          path: '**/target/surefire-reports/TEST-*.xml'
-          reporter: java-junit
+          name: junit-test-reports
+          path: target/surefire-reports/
+
+      - name: Publish summary
+        if: always()
+        run: |
+          echo "## JUnit Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          grep -h "Tests run:" target/surefire-reports/*.txt >> $GITHUB_STEP_SUMMARY || true
