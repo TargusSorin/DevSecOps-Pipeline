@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project Tracker</title>
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<main class="container">
+    <h1>Project Tracker</h1>
+    <p class="subtitle">Register, login, and manage your projects and tasks.</p>
+
+    <section id="authSection" class="grid">
+        <article class="card">
+            <h2>Register</h2>
+            <form id="registerForm">
+                <label>
+                    Username
+                    <input name="username" type="text" required minlength="3" maxlength="100">
+                </label>
+                <label>
+                    Password
+                    <input name="password" type="password" required minlength="6" maxlength="100">
+                </label>
+                <button type="submit">Register</button>
+            </form>
+        </article>
+        <article class="card">
+            <h2>Login</h2>
+            <form id="loginForm">
+                <label>
+                    Username
+                    <input name="username" type="text" required minlength="3" maxlength="100">
+                </label>
+                <label>
+                    Password
+                    <input name="password" type="password" required minlength="6" maxlength="100">
+                </label>
+                <button type="submit">Login</button>
+            </form>
+        </article>
+    </section>
+
+    <section id="appSection" class="hidden">
+        <div class="toolbar">
+            <h2>Dashboard</h2>
+            <button id="logoutButton" class="secondary">Logout</button>
+        </div>
+
+        <section class="grid">
+            <article class="card">
+                <h3>Create Project</h3>
+                <form id="projectForm">
+                    <label>
+                        Name
+                        <input name="name" type="text" required maxlength="150">
+                    </label>
+                    <label>
+                        Description
+                        <textarea name="description" rows="3" maxlength="1000"></textarea>
+                    </label>
+                    <button type="submit">Add Project</button>
+                </form>
+            </article>
+            <article class="card">
+                <h3>Projects</h3>
+                <ul id="projectList" class="list"></ul>
+            </article>
+        </section>
+
+        <section id="taskSection" class="hidden">
+            <div class="toolbar">
+                <h3 id="taskSectionTitle">Tasks</h3>
+            </div>
+            <section class="grid">
+                <article class="card">
+                    <h4>Create Task</h4>
+                    <form id="taskForm">
+                        <label>
+                            Title
+                            <input name="title" type="text" required maxlength="200">
+                        </label>
+                        <label>
+                            Description
+                            <textarea name="description" rows="3" maxlength="1000"></textarea>
+                        </label>
+                        <label>
+                            Status
+                            <select name="status">
+                                <option value="TODO">TODO</option>
+                                <option value="IN_PROGRESS">IN_PROGRESS</option>
+                                <option value="DONE">DONE</option>
+                            </select>
+                        </label>
+                        <label>
+                            Due Date
+                            <input name="dueDate" type="date">
+                        </label>
+                        <button type="submit">Add Task</button>
+                    </form>
+                </article>
+                <article class="card">
+                    <h4>Task List</h4>
+                    <ul id="taskList" class="list"></ul>
+                </article>
+            </section>
+        </section>
+    </section>
+
+    <p id="statusMessage" class="status"></p>
+</main>
+<script src="/app.js"></script>
+</body>
+</html>
