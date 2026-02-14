@@ -20,5 +20,19 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      - name: Build & test with Maven
-        run: chmod +x mvnw && ./mvnw verify --batch-mode --no-transfer-progress
+      - name: Grant execute permission to Maven wrapper
+        run: chmod +x mvnw
+
+      - name: Build
+        run: ./mvnw package -DskipTests --batch-mode --no-transfer-progress
+
+      - name: Run JUnit tests
+        run: ./mvnw test --batch-mode --no-transfer-progress
+
+      - name: Publish test results
+        if: always()
+        uses: dorny/test-reporter@v1
+        with:
+          name: JUnit Test Results
+          path: '**/target/surefire-reports/TEST-*.xml'
+          reporter: java-junit
