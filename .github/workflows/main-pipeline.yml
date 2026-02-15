@@ -90,3 +90,10 @@ jobs:
         with:
           sarif_file: 'trivy-results.sarif'
           category: 'trivy'
+
+      - name: Upload Trivy SARIF
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-sarif
+          path: trivy-results.sarif
