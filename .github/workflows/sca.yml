@@ -19,8 +19,6 @@ jobs:
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
-          file: .
-          sarif: true
           args: --severity-threshold=high 
 
       - name: Upload Snyk results to GitHub Code Scanning
