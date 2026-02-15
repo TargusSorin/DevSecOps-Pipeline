@@ -18,55 +18,33 @@ permissions:
 
 jobs:
 
-  # ── Stage 1: Build & Test ──────────────────────────────────────────
+  # Stage 1: Build & Test 
   build:
     name: Build & Test
     uses: ./.github/workflows/build.yml
     secrets: inherit
 
-  # ── Stage 2: Security Checks ───────────────────────────────────────
+  # Stage 2: Security Checks
 
   # SCA 
-
   sca:
-    #needs: build
+    name: Snyk SCA
+    needs: build
     permissions:
       security-events: write
       contents: read
     uses: ./.github/workflows/sca.yml
     secrets: inherit
 
-  # SAST – CodeQL static analysis for Java
-  codeql-sast:
-    name: "SAST (CodeQL)"
+  # SAST
+  sast:
+    name: Comprehensive SAST
     needs: build
-    runs-on: ubuntu-latest
     permissions:
       security-events: write
       contents: read
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up JDK 25
-        uses: actions/setup-java@v4
-        with:
-          java-version: '25'
-          distribution: 'temurin'
-          cache: maven
-
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
-        with:
-          languages: java
-
-      - name: Build for CodeQL
-        run: chmod +x mvnw && ./mvnw package -DskipTests --batch-mode --no-transfer-progress
-
-      - name: Perform CodeQL analysis
-        uses: github/codeql-action/analyze@v3
-        with:
-          category: "/language:java"
+    uses: ./.github/workflows/sast.yml
+    secrets: inherit
 
   # Secret Scanning – Gitleaks
   gitleaks:

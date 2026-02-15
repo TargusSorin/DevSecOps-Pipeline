@@ -1,0 +1,100 @@
+name: SAST
+
+on:
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+  codeql:
+    name: CodeQL
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: java
+
+      - name: Build for CodeQL
+        run: chmod +x mvnw && ./mvnw package -DskipTests --batch-mode --no-transfer-progress
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:java"
+
+  semgrep:
+    name: Semgrep
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      contents: read
+    container:
+      image: semgrep/semgrep
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Semgrep scan
+        run: semgrep scan --config auto --sarif --output semgrep-results.sarif
+
+      - name: Upload Semgrep SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: semgrep-results.sarif
+          category: 'semgrep'
+
+  spotbugs:
+    name: SpotBugs + FindSecBugs
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Compile and run SpotBugs with FindSecBugs
+        run: |
+          chmod +x mvnw
+          ./mvnw compile spotbugs:spotbugs --batch-mode --no-transfer-progress
+
+      - name: Upload SpotBugs report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: spotbugs-findsecbugs-report
+          path: target/spotbugsXml.xml
+
+      - name: SpotBugs summary
+        if: always()
+        run: |
+          echo "## SpotBugs + FindSecBugs Results" >> $GITHUB_STEP_SUMMARY
+          if [ -f target/spotbugsXml.xml ]; then
+            BUGS=$(grep -c '<BugInstance' target/spotbugsXml.xml || true)
+            echo "Found **${BUGS}** issue(s). See the uploaded artifact for the full report." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "No SpotBugs report was generated." >> $GITHUB_STEP_SUMMARY
+          fi
