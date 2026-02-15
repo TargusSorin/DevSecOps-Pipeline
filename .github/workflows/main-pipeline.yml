@@ -30,9 +30,10 @@ jobs:
 
   sca:
     #needs: build
-    uses: ./.github/workflows/sca.yml
     permissions:
       security-events: write
+      contents: read
+    uses: ./.github/workflows/sca.yml
     secrets: inherit
 
   # SAST – CodeQL static analysis for Java
