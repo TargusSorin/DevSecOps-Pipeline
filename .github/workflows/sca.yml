@@ -29,7 +29,7 @@ jobs:
             # Ensure the Maven wrapper has execution permissions
             chmod +x mvnw
             # Run the scan using the environment's Java and Maven
-            snyk test --sarif-file-output=./snyk.sarif --severity-threshold=high 
+            snyk test --sarif --severity-threshold=high 
 
       - name: Upload Snyk results to GitHub Code Scanning
         uses: github/codeql-action/upload-sarif@v4
