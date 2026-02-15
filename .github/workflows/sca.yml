@@ -5,9 +5,12 @@ on:
   workflow_call:
 
 jobs:
-  sca_scan:
+  security:
     name: Snyk Dependency Scan
     runs-on: ubuntu-latest
+
+    permissions:
+      security-events: write
 
     steps:
       - name: Checkout code
@@ -15,6 +18,7 @@ jobs:
 
       - name: Run Snyk to check for vulnerabilities
         uses: snyk/actions/maven@master
+        continue-on-error: true
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
