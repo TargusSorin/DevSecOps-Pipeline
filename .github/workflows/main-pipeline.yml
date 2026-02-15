@@ -29,7 +29,7 @@ jobs:
   # SCA 
 
   sca:
-    needs: build
+    #needs: build
     uses: ./.github/workflows/sca.yml
     permissions:
       security-events: write
