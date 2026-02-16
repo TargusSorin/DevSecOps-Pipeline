@@ -46,6 +46,16 @@ jobs:
     uses: ./.github/workflows/sast.yml
     secrets: inherit
 
+  # Stage 3: Containerization & Image Scan
+  container:
+    name: Container Build & Scan
+    needs: [sca, sast]
+    permissions:
+      security-events: write
+      contents: read
+    uses: ./.github/workflows/container.yml
+    secrets: inherit
+
   # Secret Scanning – Gitleaks
   gitleaks:
     name: "Secret Scanning (Gitleaks)"

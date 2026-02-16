@@ -1,0 +1,51 @@
+name: Container Build & Scan
+
+on:
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+  container:
+    name: Build & Scan Container Image
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          load: true
+          tags: projecttracker:${{ github.sha }}
+
+      - name: Trivy container image scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'image'
+          image-ref: 'projecttracker:${{ github.sha }}'
+          format: 'sarif'
+          output: 'container-scan.sarif'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Upload container scan SARIF to GitHub Security
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'container-scan.sarif'
+          category: 'container-trivy'
+
+      - name: Upload container scan SARIF
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: container-scan-sarif
+          path: container-scan.sarif
