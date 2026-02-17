@@ -56,6 +56,15 @@ jobs:
     uses: ./.github/workflows/container.yml
     secrets: inherit
 
+  # Stage 4: Dynamic Application Security Testing (DAST)
+  dast:
+    name: OWASP ZAP DAST
+    needs: container
+    permissions:
+      contents: read
+    uses: ./.github/workflows/dast.yml
+    secrets: inherit
+
   # Secret Scanning – Gitleaks
   gitleaks:
     name: "Secret Scanning (Gitleaks)"

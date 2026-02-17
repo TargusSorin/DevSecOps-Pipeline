@@ -1,0 +1,66 @@
+name: DAST (OWASP ZAP)
+
+on:
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+  zap-baseline:
+    name: OWASP ZAP Baseline Scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Start application stack
+        run: docker compose up -d --build
+
+      - name: Wait for application readiness
+        run: |
+          for i in {1..60}; do
+            if curl -fsS http://localhost:8080/ > /dev/null; then
+              echo "Application is reachable."
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "Application did not become reachable in time."
+          docker compose ps
+          exit 1
+
+      - name: Run OWASP ZAP baseline scan
+        run: |
+          docker run --rm --network host \
+            -v "${{ github.workspace }}:/zap/wrk/:rw" \
+            ghcr.io/zaproxy/zaproxy:stable \
+            zap-baseline.py \
+            -t http://localhost:8080 \
+            -m 5 \
+            -I \
+            -J zap-report.json \
+            -w zap-report.md \
+            -r zap-report.html
+
+      - name: Upload ZAP reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zap-dast-reports
+          path: |
+            zap-report.json
+            zap-report.md
+            zap-report.html
+          if-no-files-found: warn
+
+      - name: Publish ZAP summary
+        if: always()
+        run: |
+          echo "## OWASP ZAP DAST Results" >> $GITHUB_STEP_SUMMARY
+          echo "Report artifact: \`zap-dast-reports\`" >> $GITHUB_STEP_SUMMARY
+
+      - name: Stop application stack
+        if: always()
+        run: docker compose down -v --remove-orphans

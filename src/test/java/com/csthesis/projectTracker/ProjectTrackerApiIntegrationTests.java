@@ -19,6 +19,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -124,6 +125,72 @@ class ProjectTrackerApiIntegrationTests {
         mockMvc.perform(get("/api/projects/{projectId}", ownerProjectId)
                         .header(HttpHeaders.AUTHORIZATION, bearer(otherUserToken)))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void duplicateUsernameRegistrationIsRejected() throws Exception {
+        String username = uniqueUsername("duplicate");
+        String payload = jsonBody(username, "password123");
+
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payload))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payload))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void createTaskWithoutStatusDefaultsToTodo() throws Exception {
+        String token = registerAndGetToken(uniqueUsername("defaults"), "password123");
+        long projectId = createProject(token, "Project Defaults", "Verify task defaults");
+
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("title", "  Task without explicit status  ");
+        payload.put("description", "Should default status");
+        payload.put("dueDate", "2026-10-01");
+
+        mockMvc.perform(post("/api/projects/{projectId}/tasks", projectId)
+                        .header(HttpHeaders.AUTHORIZATION, bearer(token))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(payload)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.title").value("Task without explicit status"))
+                .andExpect(jsonPath("$.status").value("TODO"));
+    }
+
+    @Test
+    void deletingTaskRemovesItFromProjectTaskList() throws Exception {
+        String token = registerAndGetToken(uniqueUsername("deleter"), "password123");
+        long projectId = createProject(token, "Cleanup Project", "Task deletion flow");
+
+        MvcResult createTaskResult = mockMvc.perform(post("/api/projects/{projectId}/tasks", projectId)
+                        .header(HttpHeaders.AUTHORIZATION, bearer(token))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "title", "Disposable task",
+                                "description", "Will be deleted",
+                                "status", "TODO",
+                                "dueDate", "2026-10-15"
+                        ))))
+                .andExpect(status().isCreated())
+                .andReturn();
+
+        long taskId = readLongField(createTaskResult, "id");
+        assertThat(taskId).isPositive();
+
+        mockMvc.perform(delete("/api/projects/{projectId}/tasks/{taskId}", projectId, taskId)
+                        .header(HttpHeaders.AUTHORIZATION, bearer(token)))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(get("/api/projects/{projectId}/tasks", projectId)
+                        .header(HttpHeaders.AUTHORIZATION, bearer(token)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$").isEmpty());
     }
 
     private String registerAndGetToken(String username, String password) throws Exception {
