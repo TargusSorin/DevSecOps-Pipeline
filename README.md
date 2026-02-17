@@ -105,3 +105,29 @@ The pipeline follows the principle of least privilege. Each job requests only th
 - **Lombok** for boilerplate reduction
 - **H2** in-memory database for tests
 - **Maven** build system (wrapper included)
+
+## Run locally with PostgreSQL (Docker)
+
+1. Start the database and app containers:
+
+```
+docker compose up -d --build
+```
+
+2. Open the app at:
+
+```
+http://localhost:8080
+```
+
+### Configuration
+
+The app reads these environment variables (defaults shown):
+
+- `DB_HOST` = `localhost`
+- `DB_PORT` = `5432`
+- `DB_NAME` = `projecttracker`
+- `DB_USERNAME` = `postgres`
+- `DB_PASSWORD` = `postgres`
+
+You can also override the full JDBC URL via `DB_URL`.
