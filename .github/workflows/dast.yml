@@ -5,21 +5,27 @@ on:
   workflow_call:
 
 jobs:
-  zap-baseline:
-    name: OWASP ZAP Baseline Scan
+  dast:
+    name: OWASP ZAP DAST Scan
     runs-on: ubuntu-latest
     permissions:
       contents: read
 
+    services:
+      docker:
+        image: docker:24-dind
+        options: --privileged
+
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Start application stack
+      - name: Build & start application
         run: docker compose up -d --build
 
       - name: Wait for application readiness
         run: |
+          echo "Waiting for application..."
           for i in {1..60}; do
             if curl -fsS http://localhost:8080/ > /dev/null; then
               echo "Application is reachable."
@@ -27,21 +33,22 @@ jobs:
             fi
             sleep 5
           done
-          echo "Application did not become reachable in time."
-          docker compose ps
+          echo "Application did not become reachable."
+          docker compose logs
           exit 1
 
-      - name: Run OWASP ZAP baseline scan
+      - name: Run OWASP ZAP Baseline Scan
+        id: zap_scan
         run: |
-          docker run --rm --network host \
+          docker run --rm \
+            --user root \
+            --network host \
             -v "${{ github.workspace }}:/zap/wrk/:rw" \
             ghcr.io/zaproxy/zaproxy:stable \
             zap-baseline.py \
             -t http://localhost:8080 \
             -m 5 \
-            -I \
             -J zap-report.json \
-            -w zap-report.md \
             -r zap-report.html
 
       - name: Upload ZAP reports
@@ -51,16 +58,19 @@ jobs:
           name: zap-dast-reports
           path: |
             zap-report.json
-            zap-report.md
             zap-report.html
-          if-no-files-found: warn
 
       - name: Publish ZAP summary
         if: always()
         run: |
           echo "## OWASP ZAP DAST Results" >> $GITHUB_STEP_SUMMARY
-          echo "Report artifact: \`zap-dast-reports\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f zap-report.html ]; then
+            echo "Download full report from artifacts: **zap-dast-reports**" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "No report generated." >> $GITHUB_STEP_SUMMARY
+          fi
 
-      - name: Stop application stack
+      - name: Stop application
         if: always()
         run: docker compose down -v --remove-orphans
