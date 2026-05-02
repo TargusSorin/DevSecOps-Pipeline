@@ -27,6 +27,15 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
+                .headers(headers -> headers
+                        .contentSecurityPolicy(csp -> csp.policyDirectives("default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';"))
+                        .permissionsPolicy(pp -> pp.policy("geolocation=(), microphone=(), camera=()"))
+                        .addHeaderWriter(new org.springframework.security.web.header.writers.StaticHeadersWriter("Cross-Origin-Embedder-Policy", "require-corp"))
+                        .addHeaderWriter(new org.springframework.security.web.header.writers.StaticHeadersWriter("Cross-Origin-Opener-Policy", "same-origin"))
+                        .addHeaderWriter(new org.springframework.security.web.header.writers.StaticHeadersWriter("Cross-Origin-Resource-Policy", "same-site"))
+                        .cacheControl(cache -> cache.disable())
+                        .addHeaderWriter(new org.springframework.security.web.header.writers.StaticHeadersWriter("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0"))
+                )
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/", "/index.html", "/styles.css", "/app.js", "/error", "/api/auth/**").permitAll()
