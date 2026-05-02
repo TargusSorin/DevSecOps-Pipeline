@@ -95,6 +95,7 @@ jobs:
             ghcr.io/zaproxy/zaproxy:stable \
             zap-baseline.py \
             -t http://localhost:8080 \
+            -c zap-rules.conf \
             -m 5 \
             -J zap-report.json \
             -r zap-report.html
