@@ -39,6 +39,10 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
+      - name: Register PostgreSQL Provider
+        run: az provider register --namespace Microsoft.DBforPostgreSQL --wait
+
+
       - name: Cleanup stale Resource Group (wrong region)
         run: |
           EXISTING_LOCATION=$(az group show --name ${{ env.AZ_RG }} --query location -o tsv 2>/dev/null || echo "")
