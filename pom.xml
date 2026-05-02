@@ -129,7 +129,8 @@
 				<configuration>
 					<effort>Max</effort>
 					<threshold>Low</threshold>
-					<xmlOutput>true</xmlOutput>
+					<xmlOutput>false</xmlOutput>
+					<htmlOutput>true</htmlOutput>
 					<failOnError>false</failOnError>
 					<plugins>
 						<plugin>

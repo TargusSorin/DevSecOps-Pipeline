@@ -29,7 +29,6 @@ jobs:
   # SCA 
   sca:
     name: Snyk SCA
-    needs: build
     permissions:
       security-events: write
       contents: read
@@ -39,30 +38,20 @@ jobs:
   # SAST
   sast:
     name: Comprehensive SAST
-    needs: build
     permissions:
       security-events: write
       contents: read
     uses: ./.github/workflows/sast.yml
     secrets: inherit
 
-  # Stage 3: Containerization & Image Scan
-  container:
-    name: Container Build & Scan
-    needs: [sca, sast]
+  # Stage 3: Containerization, Scan & DAST
+  container-dast:
+    name: Container Build & DAST
+    needs: [build, sca, sast]
     permissions:
       security-events: write
       contents: read
-    uses: ./.github/workflows/container.yml
-    secrets: inherit
-
-  # Stage 4: Dynamic Application Security Testing (DAST)
-  dast:
-    name: OWASP ZAP DAST
-    needs: container
-    permissions:
-      contents: read
-    uses: ./.github/workflows/dast.yml
+    uses: ./.github/workflows/container-dast.yml
     secrets: inherit
 
   # Secret Scanning – Gitleaks
@@ -85,7 +74,6 @@ jobs:
   # Vulnerability & Misconfiguration Scanning – Trivy
   trivy-scan:
     name: "Vulnerability Scan (Trivy)"
-    needs: build
     runs-on: ubuntu-latest
     permissions:
       security-events: write

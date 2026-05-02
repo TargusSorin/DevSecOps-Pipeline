@@ -101,15 +101,14 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: spotbugs-findsecbugs-report
-          path: target/spotbugsXml.xml
+          path: target/site/spotbugs.html
 
       - name: SpotBugs summary
         if: always()
         run: |
           echo "## SpotBugs + FindSecBugs Results" >> $GITHUB_STEP_SUMMARY
-          if [ -f target/spotbugsXml.xml ]; then
-            BUGS=$(grep -c '<BugInstance' target/spotbugsXml.xml || true)
-            echo "Found **${BUGS}** issue(s). See the uploaded artifact for the full report." >> $GITHUB_STEP_SUMMARY
+          if [ -f target/site/spotbugs.html ]; then
+            echo "See the uploaded artifact **spotbugs-findsecbugs-report** for the full HTML report." >> $GITHUB_STEP_SUMMARY
           else
             echo "No SpotBugs report was generated." >> $GITHUB_STEP_SUMMARY
           fi

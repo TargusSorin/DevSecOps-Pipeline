@@ -11,19 +11,29 @@ The CI/CD pipeline is defined in `.github/workflows/` and runs automatically on 
 ```
 push / PR / manual dispatch
         │
-        ▼
-┌───────────────┐
-│  Build & Test │─────────────────────────────────────┐
-└───────┬───────┘                                     │
-        │ (on success)                                │ (parallel, no build dependency)
-        ├──────────────────┬─────────────────┐        │
-        ▼                  ▼                 ▼        ▼
-┌──────────────┐  ┌────────────────┐  ┌──────────┐  ┌──────────────┐
-│  SAST        │  │ Vulnerability  │  │   SCA    │  │   Secret     │
-│  (CodeQL)    │  │ Scan (Trivy)   │  │ (Dep.    │  │   Scanning   │
-│              │  │                │  │  Review) │  │  (Gitleaks)  │
-└──────────────┘  └────────────────┘  └──────────┘  └──────────────┘
-                                       (PRs only)
+        ├────────────────────────────────────────────────────────┐
+        ▼                                                        ▼
+┌───────────────┐                                         ┌──────────────┐
+│  Build & Test │                                         │   Secret     │
+└───────┬───────┘                                         │   Scanning   │
+        │ (on success)                                    │  (Gitleaks)  │
+        ├──────────────────┬─────────────────┐            └──────────────┘
+        ▼                  ▼                 ▼
+┌──────────────┐   ┌──────────────┐  ┌───────────────┐
+│     SAST     │   │     SCA      │  │ Vulnerability │
+│  (CodeQL,    │   │    (Snyk)    │  │ Scan (Trivy   │
+│  Semgrep,    │   │              │  │  Filesystem)  │
+│  SpotBugs)   │   └───────┬──────┘  └───────────────┘
+└───────┬──────┘           │ 
+        └─────────┬────────┘ 
+                  ▼
+          ┌───────────────┐
+          │   Container   │ (Docker Build + Trivy Image Scan)
+          └───────┬───────┘
+                  ▼
+          ┌───────────────┐
+          │     DAST      │ (OWASP ZAP)
+          └───────────────┘
 ```
 
 ### Workflow Files
@@ -38,29 +48,39 @@ Reusable workflow that compiles the project and runs all tests.
 
 #### `main-pipeline.yml` — DevSecOps Pipeline (Orchestrator)
 
-Calls the build workflow, then runs four security checks in parallel.
+Calls the build workflow, then runs multiple security checks.
 
 ### Security Checks
 
-#### 1. SAST — CodeQL (`codeql-sast`)
+#### 1. SAST — Comprehensive Scan (`sast`)
 
-**Static Application Security Testing** using GitHub's CodeQL engine.
+**Static Application Security Testing** using multiple engines.
 
-- Analyzes Java source code for security vulnerabilities such as SQL injection, XSS, path traversal, insecure deserialization, and authentication/authorization flaws.
-- Builds the project with `mvn package` so CodeQL can trace data flows through compiled bytecode.
-- Results are uploaded as SARIF to the **Security → Code scanning** tab in GitHub.
-- Runs after the build job passes.
+- **CodeQL**: Analyzes Java source code for security vulnerabilities. Uploads results as SARIF to GitHub Security.
+- **Semgrep**: Scans source code using Semgrep's extensive rule registry. Uploads SARIF.
+- **SpotBugs + FindSecBugs**: Analyzes compiled bytecode for security bugs and generates an HTML report.
 
-#### 2. SCA — Dependency Review (`dependency-review`)
+#### 2. SCA — Snyk (`sca`)
 
-**Software Composition Analysis** using GitHub's Dependency Review action.
+**Software Composition Analysis** using Snyk.
 
-- Compares dependency changes between the PR branch and `main` to detect newly introduced vulnerabilities.
-- Fails the check if any new dependency has a **high** or **critical** severity CVE.
-- Posts a summary comment on the pull request listing all flagged dependencies.
-- **Runs only on pull requests.**
+- Checks project dependencies for vulnerabilities.
+- Fails if issues with `high` or `critical` severity are found.
+- Uploads results as SARIF to GitHub Security.
+- Runs in parallel with the Java build for faster feedback.
 
-#### 3. Secret Scanning — Gitleaks (`gitleaks`)
+#### 3. Container Build & DAST (`container-dast`)
+
+Builds the Docker image, scans it for vulnerabilities, and runs Dynamic Application Security Testing.
+
+- Uses Docker Buildx with GitHub Actions cache to build the image efficiently.
+- Scans the generated image using **Trivy** for known OS and dependency vulnerabilities.
+- Uploads container scanning results as SARIF to GitHub Security.
+- Starts the application using Docker Compose with the freshly built image.
+- Runs the OWASP ZAP baseline scan against the application URL, outputting HTML and JSON reports.
+- Runs after the Build, SAST, and SCA jobs pass.
+
+#### 5. Secret Scanning — Gitleaks (`gitleaks`)
 
 Scans the full Git history for accidentally committed secrets.
 
@@ -68,7 +88,7 @@ Scans the full Git history for accidentally committed secrets.
 - Uses `fetch-depth: 0` to clone the entire history and scan all commits.
 - Runs in parallel with the build (no dependency) so secrets are caught as early as possible.
 
-#### 4. Vulnerability Scan — Trivy (`trivy-scan`)
+#### 6. Vulnerability Scan — Trivy Filesystem (`trivy-scan`)
 
 **Vulnerability and misconfiguration scanning** using Aqua Security's Trivy.
 

@@ -1,5 +1,6 @@
 services:
   app:
+    image: ${APP_IMAGE:-projecttracker-app}
     build: .
     container_name: projecttracker-app
     depends_on:
