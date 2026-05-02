@@ -51,6 +51,7 @@ jobs:
     permissions:
       security-events: write
       contents: read
+      packages: write
     uses: ./.github/workflows/container-dast.yml
     secrets: inherit
 
