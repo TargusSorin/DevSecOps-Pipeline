@@ -104,3 +104,11 @@ jobs:
         with:
           name: trivy-sarif
           path: trivy-results.sarif
+
+  # Stage 4: Deployment
+  deploy:
+    name: Deploy to Azure
+    needs: [container-dast]
+    if: github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/deploy.yml
+    secrets: inherit

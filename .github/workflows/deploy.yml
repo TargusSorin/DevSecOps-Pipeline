@@ -1,0 +1,135 @@
+name: Deploy to Azure
+
+on:
+  workflow_call:
+    secrets:
+      AZURE_CREDENTIALS:
+        required: true
+
+jobs:
+  deploy:
+    name: Deploy to Azure
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Lowercase repository name
+        run: |
+          echo "REPO=${GITHUB_REPOSITORY,,}" >> ${GITHUB_ENV}
+          # Create a safe name for Azure resources (alphanumeric, max 15 chars)
+          SAFE_REPO=$(echo "${GITHUB_REPOSITORY,,}" | sed 's/[^a-z0-9]//g' | cut -c1-15)
+          
+          # Generate unique suffix using the first 5 chars of the repo id or just a hash
+          HASH=$(echo "${GITHUB_REPOSITORY}" | md5sum | cut -c1-5)
+          echo "RESOURCE_PREFIX=${SAFE_REPO}${HASH}" >> ${GITHUB_ENV}
+
+      - name: Setup Azure CLI variables
+        run: |
+          echo "AZ_RG=${{ env.RESOURCE_PREFIX }}-rg" >> $GITHUB_ENV
+          echo "AZ_LOCATION=eastus" >> $GITHUB_ENV
+          echo "AZ_DB_SERVER=${{ env.RESOURCE_PREFIX }}-db" >> $GITHUB_ENV
+          echo "AZ_APP_PLAN=${{ env.RESOURCE_PREFIX }}-plan" >> $GITHUB_ENV
+          echo "AZ_WEBAPP=${{ env.RESOURCE_PREFIX }}-webapp" >> $GITHUB_ENV
+          
+          echo "DB_ADMIN=pgadmin" >> $GITHUB_ENV
+          # Generate a random password for DB if not provided (only used on first creation)
+          echo "DB_PASSWORD=$(openssl rand -base64 12 | tr -d '+/=' | cut -c1-16)A1!" >> $GITHUB_ENV
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Create Resource Group
+        run: az group create --name ${{ env.AZ_RG }} --location ${{ env.AZ_LOCATION }}
+
+      - name: Provision PostgreSQL Flexible Server
+        run: |
+          if az postgres flexible-server show --resource-group ${{ env.AZ_RG }} --name ${{ env.AZ_DB_SERVER }} > /dev/null 2>&1; then
+            echo "Database server already exists."
+          else
+            echo "Creating database server..."
+            az postgres flexible-server create \
+              --resource-group ${{ env.AZ_RG }} \
+              --name ${{ env.AZ_DB_SERVER }} \
+              --location ${{ env.AZ_LOCATION }} \
+              --admin-user ${{ env.DB_ADMIN }} \
+              --admin-password "${{ env.DB_PASSWORD }}" \
+              --sku-name Standard_B1ms \
+              --tier Burstable \
+              --version 16 \
+              --public-access all \
+              --yes
+            
+            echo "Creating database 'projecttracker'..."
+            az postgres flexible-server db create \
+              --resource-group ${{ env.AZ_RG }} \
+              --server-name ${{ env.AZ_DB_SERVER }} \
+              --database-name projecttracker
+              
+            echo "IS_NEW_DB=true" >> $GITHUB_ENV
+          fi
+
+      - name: Create App Service Plan
+        run: |
+          if az appservice plan show --name ${{ env.AZ_APP_PLAN }} --resource-group ${{ env.AZ_RG }} > /dev/null 2>&1; then
+            echo "App Service Plan already exists."
+          else
+            echo "Creating App Service Plan..."
+            az appservice plan create \
+              --name ${{ env.AZ_APP_PLAN }} \
+              --resource-group ${{ env.AZ_RG }} \
+              --sku F1 \
+              --is-linux
+          fi
+
+      - name: Provision or Update Web App
+        run: |
+          if az webapp show --resource-group ${{ env.AZ_RG }} --name ${{ env.AZ_WEBAPP }} > /dev/null 2>&1; then
+            echo "Web app exists. Updating container image..."
+            az webapp config container set \
+              --resource-group ${{ env.AZ_RG }} \
+              --name ${{ env.AZ_WEBAPP }} \
+              --docker-custom-image-name ghcr.io/${{ env.REPO }}/projecttracker-app:${{ github.sha }} \
+              --docker-registry-server-url https://ghcr.io \
+              --docker-registry-server-user ${{ github.actor }} \
+              --docker-registry-server-password ${{ secrets.GITHUB_TOKEN }}
+          else
+            echo "Creating web app..."
+            az webapp create \
+              --resource-group ${{ env.AZ_RG }} \
+              --plan ${{ env.AZ_APP_PLAN }} \
+              --name ${{ env.AZ_WEBAPP }} \
+              --deployment-container-image-name ghcr.io/${{ env.REPO }}/projecttracker-app:${{ github.sha }}
+          fi
+
+      - name: Configure Web App Settings
+        run: |
+          # Only set DB_PASSWORD if it's a new database
+          if [ "${{ env.IS_NEW_DB }}" == "true" ]; then
+            az webapp config appsettings set \
+              --resource-group ${{ env.AZ_RG }} \
+              --name ${{ env.AZ_WEBAPP }} \
+              --settings \
+              DB_HOST=${{ env.AZ_DB_SERVER }}.postgres.database.azure.com \
+              DB_PORT=5432 \
+              DB_NAME=projecttracker \
+              DB_USERNAME=${{ env.DB_ADMIN }} \
+              DB_PASSWORD="${{ env.DB_PASSWORD }}" \
+              DOCKER_REGISTRY_SERVER_URL=https://ghcr.io \
+              DOCKER_REGISTRY_SERVER_USERNAME=${{ github.actor }} \
+              DOCKER_REGISTRY_SERVER_PASSWORD=${{ secrets.GITHUB_TOKEN }} \
+              WEBSITES_PORT=8080
+          else
+            az webapp config appsettings set \
+              --resource-group ${{ env.AZ_RG }} \
+              --name ${{ env.AZ_WEBAPP }} \
+              --settings \
+              DB_HOST=${{ env.AZ_DB_SERVER }}.postgres.database.azure.com \
+              DB_PORT=5432 \
+              DB_NAME=projecttracker \
+              DB_USERNAME=${{ env.DB_ADMIN }} \
+              DOCKER_REGISTRY_SERVER_URL=https://ghcr.io \
+              DOCKER_REGISTRY_SERVER_USERNAME=${{ github.actor }} \
+              DOCKER_REGISTRY_SERVER_PASSWORD=${{ secrets.GITHUB_TOKEN }} \
+              WEBSITES_PORT=8080
+          fi
