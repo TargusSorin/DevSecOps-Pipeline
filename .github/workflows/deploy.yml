@@ -25,7 +25,7 @@ jobs:
       - name: Setup Azure CLI variables
         run: |
           echo "AZ_RG=${{ env.RESOURCE_PREFIX }}-rg" >> $GITHUB_ENV
-          echo "AZ_LOCATION=eastus" >> $GITHUB_ENV
+          echo "AZ_LOCATION=swedencentral" >> $GITHUB_ENV
           echo "AZ_DB_SERVER=${{ env.RESOURCE_PREFIX }}-db" >> $GITHUB_ENV
           echo "AZ_APP_PLAN=${{ env.RESOURCE_PREFIX }}-plan" >> $GITHUB_ENV
           echo "AZ_WEBAPP=${{ env.RESOURCE_PREFIX }}-webapp" >> $GITHUB_ENV
